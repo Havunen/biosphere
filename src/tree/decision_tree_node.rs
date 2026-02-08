@@ -330,9 +330,7 @@ mod tests {
     use crate::testing::is_sorted;
     use crate::utils::sorted_samples;
     use assert_approx_eq::*;
-    use ndarray::{arr1, arr2, s, Array, Array1, Axis};
-    use ndarray_rand::rand_distr::Uniform;
-    use ndarray_rand::RandomExt;
+    use ndarray::{arr1, arr2, s, Array1, Array2, Axis};
     use rand::rngs::StdRng;
     use rand::SeedableRng;
     use rstest::*;
@@ -380,7 +378,7 @@ mod tests {
     #[test]
     fn test_find_trivial_best_split() {
         let mut rng = StdRng::seed_from_u64(0);
-        let X = Array::random_using((100, 1), Uniform::new(0., 1.).unwrap(), &mut rng);
+        let X = Array2::from_shape_fn((100, 1), |_| rng.random::<f64>());
         let y = Array1::<f64>::zeros(100);
 
         let node = DecisionTreeNode::default();
@@ -406,7 +404,7 @@ mod tests {
         #[case] d: usize,
     ) {
         let mut rng = StdRng::seed_from_u64(0);
-        let X = Array::random_using((100, d), Uniform::new(0., 1.).unwrap(), &mut rng);
+        let X = Array2::from_shape_fn((100, d), |_| rng.random::<f64>());
 
         let mut single_samples: Vec<usize> =
             (0..n_samples).map(|_| rng.random_range(0..100)).collect();
