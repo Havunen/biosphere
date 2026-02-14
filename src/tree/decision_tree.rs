@@ -95,10 +95,12 @@ impl DecisionTree {
 
 #[cfg(test)]
 mod tests {
+    use std::collections::HashSet;
     use super::*;
     use crate::testing::load_iris;
-    use ndarray::s;
+    use ndarray::{s, Array2};
     use rstest::*;
+    use crate::MaxFeatures;
 
     #[rstest]
     fn test_tree() {
@@ -139,6 +141,7 @@ mod tests {
         let X = Array2::from_shape_fn((10, 1), |(i, _)| i as f64);
         let y = Array1::from_vec(vec![0., 0., 0., 0., 0., 1., 1., 1., 1., 1.]);
 
+        // Tree should not SPLIT because min_samples_leaf of 6 would leave fewer than 6 samples in one of the child nodes!
         let parameters = DecisionTreeParameters::new(None, MaxFeatures::None, 2, 6, 0);
         let mut tree = DecisionTree::new(parameters);
         tree.fit(&X.view(), &y.view());
