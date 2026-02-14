@@ -51,14 +51,21 @@ impl DecisionTree {
 
         let n_samples = samples[0].len();
         let mut all_false = vec![false; X.nrows()];
+        let mut constant_features = vec![false; X.ncols()];
+        let mut constant_features_stack = Vec::<usize>::new();
+        let mut feature_order: Vec<usize> = (0..X.ncols()).collect();
+        let mut split_samples_scratch = Vec::<usize>::new();
 
         self.node.split(
             X,
             y,
             samples,
             n_samples,
-            vec![false; X.ncols()],
+            &mut constant_features,
+            &mut constant_features_stack,
             &mut all_false,
+            &mut feature_order,
+            &mut split_samples_scratch,
             sum,
             &mut rng,
             0,
@@ -68,8 +75,8 @@ impl DecisionTree {
 
     pub fn predict(&self, X: &ArrayView2<f64>) -> Array1<f64> {
         let mut predictions = Array1::<f64>::zeros(X.nrows());
-        for row in 0..X.nrows() {
-            predictions[row] = self.predict_row(&X.row(row));
+        for (prediction, row) in predictions.iter_mut().zip(X.outer_iter()) {
+            *prediction = self.predict_row(&row);
         }
         predictions
     }
@@ -97,8 +104,10 @@ impl DecisionTree {
 mod tests {
     use super::*;
     use crate::testing::load_iris;
-    use ndarray::s;
+    use crate::MaxFeatures;
+    use ndarray::{s, Array1, Array2};
     use rstest::*;
+    use std::collections::HashSet;
 
     #[rstest]
     fn test_tree() {

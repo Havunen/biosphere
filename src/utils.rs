@@ -8,7 +8,7 @@ use rand::Rng;
 /// data: Array1<f64> or ArrayView1<f64>
 pub fn argsort(data: &ArrayBase<impl Data<Elem = f64>, Ix1>) -> Vec<usize> {
     let mut indices = (0..data.len()).collect::<Vec<usize>>();
-    indices.sort_unstable_by(|a, b| data[*a].partial_cmp(&data[*b]).unwrap());
+    indices.sort_unstable_by(|a, b| data[*a].total_cmp(&data[*b]));
     indices
 }
 
@@ -56,7 +56,7 @@ pub fn sorted_samples(
 
     for idx in 0..X.ncols() {
         let mut samples_ = samples.to_vec();
-        samples_.sort_by(|a, b| X[[*a, idx]].partial_cmp(&X[[*b, idx]]).unwrap());
+        samples_.sort_unstable_by(|a, b| X[[*a, idx]].total_cmp(&X[[*b, idx]]));
         samples_out.push(samples_);
     }
     samples_out
@@ -69,6 +69,7 @@ mod tests {
     use ndarray::{Array1, Array2, Axis};
     use rand::rngs::StdRng;
     use rand::SeedableRng;
+    use std::cmp::Ordering;
 
     #[test]
     fn test_argsort() {
@@ -110,6 +111,16 @@ mod tests {
             assert!(is_sorted(
                 &X.column(feature).select(Axis(0), &samples[feature])
             ));
+        }
+    }
+
+    #[test]
+    fn test_argsort_does_not_panic_on_nan() {
+        let x = Array1::from_vec(vec![1.0, f64::NAN, -1.0, 0.0]);
+        let indices = argsort(&x);
+        let sorted = x.select(Axis(0), &indices);
+        for w in sorted.windows(2) {
+            assert_ne!(w[0].total_cmp(&w[1]), Ordering::Greater);
         }
     }
 }

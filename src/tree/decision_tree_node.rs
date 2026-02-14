@@ -18,6 +18,10 @@ pub struct DecisionTreeNode {
 
 impl DecisionTreeNode {
     fn leaf_node(&mut self, label: f64) {
+        self.left_child = None;
+        self.right_child = None;
+        self.feature_index = None;
+        self.feature_value = None;
         self.label = Some(label);
     }
 
@@ -28,14 +32,21 @@ impl DecisionTreeNode {
         y: &ArrayView1<f64>,
         samples: Vec<&mut [usize]>,
         n_samples: usize,
-        mut constant_features: Vec<bool>,
+        constant_features: &mut [bool],
+        constant_features_stack: &mut Vec<usize>,
         // Used in split_samples. Passed here to avoid reallocating.
         all_false: &mut [bool],
+        // Used in split. Passed here to avoid reallocating.
+        feature_order: &mut [usize],
+        // Used in split_samples. Passed here to avoid reallocating.
+        split_samples_scratch: &mut Vec<usize>,
         sum: f64,
         rng: &mut impl Rng,
         current_depth: usize,
         parameters: &DecisionTreeParameters,
     ) {
+        let constant_features_stack_len = constant_features_stack.len();
+
         if let Some(depth) = parameters.max_depth {
             if current_depth >= depth {
                 return self.leaf_node(sum / n_samples as f64);
@@ -46,19 +57,24 @@ impl DecisionTreeNode {
             return self.leaf_node(sum / n_samples as f64);
         }
 
+        if n_samples < parameters.min_samples_leaf.max(1).saturating_mul(2) {
+            return self.leaf_node(sum / n_samples as f64);
+        }
+
         let mut best_gain = 0.;
         let mut best_split = 0;
         let mut best_split_val = 0.;
         let mut best_feature = 0;
         let mut left_sum_at_best_split = 0.;
 
-        let mut feature_order = (0..X.ncols()).collect::<Vec<usize>>();
         feature_order.shuffle(rng);
+
+        let max_features = parameters.max_features.from_n_features(X.ncols());
 
         for (feature_idx, &feature) in feature_order.iter().enumerate() {
             // Note that we continue splitting until at least on non-constant feature
             // was evaluated.
-            if feature_idx >= parameters.max_features.from_n_features(X.ncols()) && best_gain > 0. {
+            if feature_idx >= max_features && best_gain > 0. {
                 break;
             }
 
@@ -72,11 +88,18 @@ impl DecisionTreeNode {
                 < FEATURE_THRESHOLD
             {
                 constant_features[feature] = true;
+                constant_features_stack.push(feature);
                 continue;
             }
 
-            let (split, split_val, gain, left_sum) =
-                self.find_best_split(X, y, feature, samples[feature], sum);
+            let (split, split_val, gain, left_sum) = self.find_best_split(
+                X,
+                y,
+                feature,
+                samples[feature],
+                sum,
+                parameters.min_samples_leaf,
+            );
 
             if gain > best_gain {
                 best_gain = gain;
@@ -88,15 +111,22 @@ impl DecisionTreeNode {
         }
 
         if best_gain <= MIN_GAIN_TO_SPLIT {
-            return self.leaf_node(sum / n_samples as f64);
+            self.leaf_node(sum / n_samples as f64);
+
+            for &feature in &constant_features_stack[constant_features_stack_len..] {
+                constant_features[feature] = false;
+            }
+            constant_features_stack.truncate(constant_features_stack_len);
+            return;
         }
 
         let (left_samples, right_samples) = self.split_samples(
             samples,
             best_split,
-            &constant_features,
+            constant_features,
             best_feature,
             all_false,
+            split_samples_scratch,
         );
 
         let mut left = DecisionTreeNode::default();
@@ -105,8 +135,11 @@ impl DecisionTreeNode {
             y,
             left_samples,
             best_split,
-            constant_features.clone(),
+            constant_features,
+            constant_features_stack,
             all_false,
+            feature_order,
+            split_samples_scratch,
             left_sum_at_best_split,
             rng,
             current_depth + 1,
@@ -121,7 +154,10 @@ impl DecisionTreeNode {
             right_samples,
             n_samples - best_split,
             constant_features,
+            constant_features_stack,
             all_false,
+            feature_order,
+            split_samples_scratch,
             sum - left_sum_at_best_split,
             rng,
             current_depth + 1,
@@ -131,6 +167,12 @@ impl DecisionTreeNode {
 
         self.feature_index = Some(best_feature);
         self.feature_value = Some(best_split_val);
+        self.label = None;
+
+        for &feature in &constant_features_stack[constant_features_stack_len..] {
+            constant_features[feature] = false;
+        }
+        constant_features_stack.truncate(constant_features_stack_len);
     }
 
     /// Find the best split in `self.X[samples, feature]`.
@@ -141,6 +183,7 @@ impl DecisionTreeNode {
         feature: usize,
         samples: &[usize],
         sum: f64,
+        min_samples_leaf: usize,
     ) -> (usize, f64, f64, f64) {
         let n = samples.len();
         let mut cumsum = 0.;
@@ -149,13 +192,22 @@ impl DecisionTreeNode {
         let mut split = 0;
         let mut left_sum: f64 = 0.;
 
+        let mut prev_x = X[[samples[0], feature]];
+
         for s in 1..samples.len() {
-            debug_assert!(X[[samples[s], feature]] >= X[[samples[s - 1], feature]]);
+            let current_x = X[[samples[s], feature]];
+            debug_assert!(current_x >= prev_x);
 
             cumsum += y[samples[s - 1]];
 
+            if s < min_samples_leaf || n - s < min_samples_leaf {
+                prev_x = current_x;
+                continue;
+            }
+
             // Hackedy hack.
-            if X[[samples[s], feature]] - X[[samples[s - 1], feature]] < 1e-12 {
+            if current_x - prev_x < 1e-12 {
+                prev_x = current_x;
                 continue;
             }
 
@@ -175,6 +227,8 @@ impl DecisionTreeNode {
                 split = s;
                 left_sum = cumsum;
             }
+
+            prev_x = current_x;
         }
 
         debug_assert!((cumsum + y[*samples.last().unwrap()] - sum).abs() < 1e-12);
@@ -214,6 +268,7 @@ impl DecisionTreeNode {
         best_feature: usize,
         // best_split_val: f64,
         all_false: &mut [bool],
+        copy_of_first_right: &mut Vec<usize>,
     ) -> (Vec<&'a mut [usize]>, Vec<&'a mut [usize]>) {
         // We replace lookups & comparisons X[[idx, best_feature]] > best_split_val
         // with a lookup all_false[idx]. This is faster. Since best_feature was split
@@ -227,7 +282,8 @@ impl DecisionTreeNode {
         let mut new_samples_right = Vec::<&mut [usize]>::with_capacity(samples.len());
 
         let mut first_left: &mut [usize] = &mut [];
-        let mut copy_of_first_right: Vec<usize> = Vec::with_capacity(n - split);
+        copy_of_first_right.clear();
+        copy_of_first_right.reserve(n - split);
         let mut initialized = false;
         let mut index_of_first: usize = 0;
 
@@ -301,13 +357,13 @@ impl DecisionTreeNode {
                 }
             }
 
-            for idx in 0..(n - split) {
-                // if X[[copy_of_first_right[idx], best_feature]] > best_split_val {
-                if all_false[copy_of_first_right[idx]] {
-                    new_right[current_right] = copy_of_first_right[idx];
+            for &value in copy_of_first_right.iter() {
+                // if X[[value, best_feature]] > best_split_val {
+                if all_false[value] {
+                    new_right[current_right] = value;
                     current_right += 1;
                 } else {
-                    first_left[current_left] = copy_of_first_right[idx];
+                    first_left[current_left] = value;
                     current_left += 1;
                 }
             }
@@ -368,6 +424,7 @@ mod tests {
             feature,
             &samples,
             y.slice(s![start..stop]).sum(),
+            1,
         );
 
         assert_eq!((expected_split, expected_split_val), (split, split_val));
@@ -386,8 +443,24 @@ mod tests {
         samples.sort_unstable_by(|a, b| X[[*a, 0]].partial_cmp(&X[[*b, 0]]).unwrap());
 
         let (split, split_val, gain, sum) =
-            node.find_best_split(&X.view(), &y.view(), 0, &samples, 0.);
+            node.find_best_split(&X.view(), &y.view(), 0, &samples, 0., 1);
         assert_eq!((split, split_val, gain, sum), (0, 0., 0., 0.));
+    }
+
+    #[test]
+    fn test_find_best_split_respects_min_samples_leaf() {
+        let X = Array2::from_shape_fn((10, 1), |(i, _)| i as f64);
+        let y = arr1(&[0., 0., 0., 0., 0., 1., 1., 1., 1., 1.]);
+
+        let node = DecisionTreeNode::default();
+        let samples: Vec<usize> = (0..10).collect();
+
+        let (split, _, _, _) = node.find_best_split(&X.view(), &y.view(), 0, &samples, y.sum(), 4);
+        assert_eq!(split, 5);
+
+        let (split, split_val, gain, left_sum) =
+            node.find_best_split(&X.view(), &y.view(), 0, &samples, y.sum(), 6);
+        assert_eq!((split, split_val, gain, left_sum), (0, 0., 0., 0.));
     }
 
     #[rstest]
@@ -424,6 +497,7 @@ mod tests {
 
         let node = DecisionTreeNode::default();
         let mut all_false = vec![false; X.nrows()];
+        let mut copy_of_first_right = Vec::<usize>::new();
 
         let (left, right) = node.split_samples(
             samples_references,
@@ -431,6 +505,7 @@ mod tests {
             &all_false_but_first,
             best_feature,
             &mut all_false,
+            &mut copy_of_first_right,
         );
 
         assert!(left.len() == d);
@@ -452,6 +527,107 @@ mod tests {
             all_samples.sort();
 
             assert_eq!(all_samples, single_samples);
+        }
+    }
+
+    #[test]
+    fn test_split_samples_reuses_scratch_and_resets_all_false() {
+        let mut rng = StdRng::seed_from_u64(0);
+        let d = 3;
+        let X = Array2::from_shape_fn((100, d), |_| rng.random::<f64>());
+
+        let mut single_samples: Vec<usize> = (0..50).map(|_| rng.random_range(0..100)).collect();
+        single_samples.sort();
+
+        let node = DecisionTreeNode::default();
+        let mut all_false = vec![false; X.nrows()];
+        let mut copy_of_first_right = Vec::<usize>::new();
+        let constant_features = vec![false; d];
+
+        {
+            let best_feature = 1;
+            let best_split_val = 0.2;
+
+            let mut samples = sorted_samples(&X, &single_samples);
+            let split = X
+                .column(best_feature)
+                .select(Axis(0), &single_samples)
+                .iter()
+                .filter(|&&x| x <= best_split_val)
+                .count();
+            let samples_references = samples.iter_mut().map(|x| x.as_mut_slice()).collect();
+
+            let (left, right) = node.split_samples(
+                samples_references,
+                split,
+                &constant_features,
+                best_feature,
+                &mut all_false,
+                &mut copy_of_first_right,
+            );
+
+            assert!(all_false.iter().all(|&x| !x));
+
+            for (feature, (l, r)) in left.into_iter().zip(right).enumerate() {
+                assert!(is_sorted(&X.column(feature).select(Axis(0), l)));
+                assert!(is_sorted(&X.column(feature).select(Axis(0), r)));
+
+                for idx in l.iter() {
+                    assert!(X[[*idx, best_feature]] <= best_split_val);
+                }
+
+                for idx in r.iter() {
+                    assert!(X[[*idx, best_feature]] > best_split_val);
+                }
+
+                let mut all_samples = [l, r].concat();
+                all_samples.sort();
+
+                assert_eq!(all_samples, single_samples);
+            }
+        }
+
+        {
+            let best_feature = 2;
+            let best_split_val = 0.8;
+
+            let mut samples = sorted_samples(&X, &single_samples);
+            let split = X
+                .column(best_feature)
+                .select(Axis(0), &single_samples)
+                .iter()
+                .filter(|&&x| x <= best_split_val)
+                .count();
+            let samples_references = samples.iter_mut().map(|x| x.as_mut_slice()).collect();
+
+            let (left, right) = node.split_samples(
+                samples_references,
+                split,
+                &constant_features,
+                best_feature,
+                &mut all_false,
+                &mut copy_of_first_right,
+            );
+
+            assert!(all_false.iter().all(|&x| !x));
+
+            for (feature, (l, r)) in left.into_iter().zip(right).enumerate() {
+                assert!(is_sorted(&X.column(feature).select(Axis(0), l)));
+                assert!(is_sorted(&X.column(feature).select(Axis(0), r)));
+
+                for idx in l.iter() {
+                    assert!(X[[*idx, best_feature]] <= best_split_val);
+                }
+
+                for idx in r.iter() {
+                    assert!(X[[*idx, best_feature]] > best_split_val);
+                }
+
+                let mut all_samples = [l, r].concat();
+                all_samples.sort();
+
+                assert_eq!(all_samples, single_samples);
+            }
         }
     }
 }
