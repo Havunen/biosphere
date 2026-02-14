@@ -4,8 +4,8 @@ use biosphere::utils::{
 #[cfg(test)]
 use criterion::{criterion_group, criterion_main, BenchmarkId, Criterion};
 use ndarray::Array1;
-use rand::Rng;
 use rand::rngs::StdRng;
+use rand::Rng;
 use rand::SeedableRng;
 
 pub fn benchmark_utils(c: &mut Criterion) {
@@ -18,9 +18,7 @@ pub fn benchmark_utils(c: &mut Criterion) {
         group.bench_with_input(BenchmarkId::new("argsort_continuous", size), &x, |b, x| {
             b.iter(|| argsort(x))
         });
-        let y = Array1::from_shape_fn(size, |_| {
-            if rng.random_bool(0.3) { 1.0 } else { 0.0 }
-        });
+        let y = Array1::from_shape_fn(size, |_| if rng.random_bool(0.3) { 1.0 } else { 0.0 });
         group.bench_with_input(BenchmarkId::new("argsort_one_hot", size), &y, |b, x| {
             b.iter(|| argsort(x))
         });

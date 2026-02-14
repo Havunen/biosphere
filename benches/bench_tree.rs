@@ -17,9 +17,14 @@ pub fn data(n: usize, d: usize, rng: &mut impl Rng) -> (Array2<f64>, Array1<f64>
             X.slice_mut(s![.., i])
                 .assign(&Array1::from_shape_fn(n, |_| rng.random::<f64>()));
         } else {
-            X.slice_mut(s![.., i]).assign(&Array1::from_shape_fn(n, |_| {
-                if rng.random_bool(0.3) { 1.0 } else { 0.0 }
-            }));
+            X.slice_mut(s![.., i])
+                .assign(&Array1::from_shape_fn(n, |_| {
+                    if rng.random_bool(0.3) {
+                        1.0
+                    } else {
+                        0.0
+                    }
+                }));
         }
     }
     let X = Array2::from_shape_fn((n, d), |_| rng.random::<f64>());
