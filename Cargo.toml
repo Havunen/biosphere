@@ -17,6 +17,10 @@ name = "biosphere"
 ndarray = "0.17.2"
 rand = "0.9"
 rayon = "1.11"
+serde = { version = "1", features = ["derive"], optional = true }
+
+[features]
+serde = ["dep:serde"]
 
 [profile.bench]
 incremental = true
@@ -29,6 +33,7 @@ csv = "^1"
 ndarray-csv = "^0.5"
 criterion = "0.8"
 assert_approx_eq = "1.1"
+postcard = { version = "1", features = ["use-std"] }
 
 [[bench]]
 name = "bench_utils"
@@ -45,3 +50,8 @@ harness = false
 [[bench]]
 name = "bench_ops"
 harness = false
+
+[[bench]]
+name = "bench_tree_serde"
+harness = false
+required-features = ["serde"]
