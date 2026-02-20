@@ -95,12 +95,12 @@ impl DecisionTree {
 
 #[cfg(test)]
 mod tests {
-    use std::collections::HashSet;
     use super::*;
     use crate::testing::load_iris;
+    use crate::MaxFeatures;
     use ndarray::{s, Array2};
     use rstest::*;
-    use crate::MaxFeatures;
+    use std::collections::HashSet;
 
     #[rstest]
     fn test_tree() {
