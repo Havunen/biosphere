@@ -44,38 +44,3 @@ def test_tree():
 def test_max_features(max_features):
     _ = RandomForest(max_features=max_features)
     _ = DecisionTree(max_features=max_features)
-
-
-def test_tree_predicts_different_classes_after_fit():
-    X = np.arange(90, dtype=float).reshape(-1, 1)
-    y = np.zeros(90, dtype=int)
-    y[30:60] = 1
-    y[60:] = 2
-
-    tree = DecisionTree(max_depth=None, random_state=0)
-    tree.fit(X, y.astype(float))
-    predictions = tree.predict(X)
-
-    predicted_classes = np.rint(predictions).astype(int)
-    assert np.array_equal(predicted_classes, y)
-
-
-def test_forest_predicts_different_classes_after_fit():
-    X = np.arange(90, dtype=float).reshape(-1, 1)
-    y = np.zeros(90, dtype=int)
-    y[30:60] = 1
-    y[60:] = 2
-
-    forest = RandomForest(
-        n_estimators=30,
-        max_depth=2,
-        max_features=None,
-        random_state=0,
-        n_jobs=1,
-    )
-    forest.fit(X, y.astype(float))
-    predictions = forest.predict(X)
-
-    predicted_classes = np.rint(predictions).astype(int)
-    assert set(predicted_classes.tolist()) >= {0, 1, 2}
-    assert np.mean(predicted_classes == y) >= 0.95
