@@ -66,7 +66,9 @@ pub fn sorted_samples(
 mod tests {
     use super::*;
     use crate::testing::is_sorted;
-    use ndarray::{Array1, Array2, Axis};
+    use ndarray::{Array, Axis};
+    use ndarray_rand::rand_distr::Uniform;
+    use ndarray_rand::RandomExt;
     use rand::rngs::StdRng;
     use rand::SeedableRng;
 
@@ -75,7 +77,7 @@ mod tests {
         let seed = 7;
         let mut rng = StdRng::seed_from_u64(seed);
         let n = 100;
-        let x = Array1::from_shape_fn(n, |_| rng.random::<f64>());
+        let x = Array::random_using(n, Uniform::new(0., 1.).unwrap(), &mut rng);
 
         let indices = argsort(&x);
         assert!(is_sorted(&x.select(Axis(0), &indices)));
@@ -99,7 +101,7 @@ mod tests {
         let n = 100;
         let d = 8;
 
-        let X = Array2::from_shape_fn((n, d), |_| rng.random::<f64>());
+        let X = Array::random_using((n, d), Uniform::new(0., 1.).unwrap(), &mut rng);
 
         let indices: Vec<Vec<usize>> = (0..d).map(|idx| argsort(&X.column(idx))).collect();
         let weights = sample_weights(n, &mut rng);
