@@ -1,0 +1,4 @@
+ref=feat/bench
+sha=5d859eabf7c20350904a7064d7f029ed82b11a74
+cargo 1.95.0-nightly (efcd9f586 2026-01-23)
+rustc 1.95.0-nightly (474276961 2026-01-26)

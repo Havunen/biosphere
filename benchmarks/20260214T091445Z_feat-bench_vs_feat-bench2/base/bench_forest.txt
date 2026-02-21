@@ -1,0 +1,6 @@
+forest                  time:   [4.9016 s 5.0586 s 5.2361 s]
+
+forest_4_jobs           time:   [1.2903 s 1.3041 s 1.3210 s]
+Found 1 outliers among 10 measurements (10.00%)
+  1 (10.00%) high mild
+

@@ -1,0 +1,28 @@
+utils/argsort_continuous/100000
+                        time:   [4.2424 ms 4.2510 ms 4.2614 ms]
+Found 12 outliers among 100 measurements (12.00%)
+  4 (4.00%) low mild
+  3 (3.00%) high mild
+  5 (5.00%) high severe
+utils/argsort_one_hot/100000
+                        time:   [482.05 µs 482.84 µs 483.77 µs]
+Found 13 outliers among 100 measurements (13.00%)
+  2 (2.00%) low mild
+  2 (2.00%) high mild
+  9 (9.00%) high severe
+utils/sample_weight, size=100000
+                        time:   [267.81 µs 268.63 µs 269.49 µs]
+Found 25 outliers among 100 measurements (25.00%)
+  11 (11.00%) low severe
+  8 (8.00%) low mild
+  3 (3.00%) high mild
+  3 (3.00%) high severe
+utils/sample_indices_from_weights, size=100000
+                        time:   [586.68 µs 588.61 µs 590.89 µs]
+Found 15 outliers among 100 measurements (15.00%)
+  1 (1.00%) low mild
+  4 (4.00%) high mild
+  10 (10.00%) high severe
+utils/oob_samples_from_weights, size=100000
+                        time:   [203.75 µs 204.94 µs 206.23 µs]
+

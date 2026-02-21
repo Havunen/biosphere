@@ -1,0 +1,37 @@
+tree_split/tree_n=100, d=10, max_depth=4, mtry=10
+                        time:   [15.502 µs 15.535 µs 15.572 µs]
+Found 4 outliers among 100 measurements (4.00%)
+  2 (2.00%) high mild
+  2 (2.00%) high severe
+tree_split/tree_n=1000, d=10, max_depth=4, mtry=10
+                        time:   [272.78 µs 273.68 µs 274.82 µs]
+Found 7 outliers among 100 measurements (7.00%)
+  2 (2.00%) high mild
+  5 (5.00%) high severe
+tree_split/tree_n=10000, d=10, max_depth=4, mtry=10
+                        time:   [3.6030 ms 3.6108 ms 3.6207 ms]
+Found 7 outliers among 100 measurements (7.00%)
+  3 (3.00%) high mild
+  4 (4.00%) high severe
+tree_split/tree_n=10000, d=10, max_depth=16, mtry=10
+                        time:   [13.170 ms 13.267 ms 13.376 ms]
+Found 19 outliers among 100 measurements (19.00%)
+  1 (1.00%) high mild
+  18 (18.00%) high severe
+tree_split/tree_n=10000, d=100, max_depth=4, mtry=10
+                        time:   [7.8100 ms 7.8292 ms 7.8488 ms]
+tree_split/tree_n=10000, d=100, max_depth=4, mtry=100
+                        time:   [39.238 ms 39.487 ms 39.748 ms]
+Found 1 outliers among 100 measurements (1.00%)
+  1 (1.00%) high mild
+tree_split/tree_n=100000, d=3, max_depth=4, mtry=3
+                        time:   [11.611 ms 11.978 ms 12.466 ms]
+Found 10 outliers among 100 measurements (10.00%)
+  5 (5.00%) high mild
+  5 (5.00%) high severe
+tree_split/tree_n=100000, d=10, max_depth=4, mtry=10
+                        time:   [39.859 ms 39.939 ms 40.027 ms]
+Found 12 outliers among 100 measurements (12.00%)
+  8 (8.00%) high mild
+  4 (4.00%) high severe
+
