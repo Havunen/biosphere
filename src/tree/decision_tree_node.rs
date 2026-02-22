@@ -173,11 +173,6 @@ impl DecisionTreeNode {
 
             cumsum += y[samples[s - 1]];
 
-            // Respect `min_samples_leaf`: both children must have at least this many samples.
-            if s < min_samples_leaf || n - s < min_samples_leaf {
-                continue;
-            }
-
             // Hackedy hack.
             if X[[samples[s], feature]] - X[[samples[s - 1], feature]] < 1e-12 {
                 continue;
